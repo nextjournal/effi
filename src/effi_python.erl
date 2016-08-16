@@ -19,7 +19,7 @@
 %% @author Jörgen Brandt <brandjoe@hu-berlin.de>
 
 
--module( perl ).
+-module( effi_python ).
 -author( "Jorgen Brandt <brandjoe@hu-berlin.de>" ).
 -vsn( "0.1.0-release" ).
 
@@ -27,35 +27,55 @@
 
 -include( "effi.hrl" ).
 
+%% ------------------------------------------------------------
+%% Callback exports
+%% ------------------------------------------------------------
+
 -export( [ffi_type/0, assignment/3, dismissal/2, shebang/0, extension/0,
           preprocess/1, libpath/1, import/0] ).
 
 
+%% ------------------------------------------------------------
+%% Callback functions
+%% ------------------------------------------------------------
 
-libpath( _Path ) -> error( unsupported ).
+%% ffi_type/0
+%
 ffi_type() -> effi_script.
-shebang() -> "#!/usr/bin/env perl".
-import() -> "".
-preprocess( Script ) -> Script.
-extension() -> ".pl".
+
+
+%% shebang/0
+%
+shebang() -> "#!/usr/bin/env python".
+
+import() -> "import sys".
+
+preprocess( Script ) ->
+  "if True:\n "++re:replace( Script, "\\n", "\n ", [{return, list}, global] ).
+
+libpath( Path ) ->
+  ["sys.path.append(\"", Path, "\")"].
+
+%% extension/0
+%
+extension() -> ".py".
 
 %% assignment/3
 %
 assignment( ParamName, false, [Value] ) ->
-  [$$, ParamName, $=, quote( Value ), ";\n"];
+  [ParamName, $=, quote( Value ), $\n];
 
 assignment( ParamName, true, ValueList ) ->
-  [$@, ParamName, "=(", string:join( [quote( Value ) || Value <- ValueList], "," ), ");\n"].
+  [ParamName, "=[", string:join( [quote( Value ) || Value <- ValueList], "," ), "]\n"].
 
 
 %% dismissal/2
 %
 dismissal( OutName, false ) ->
-  ["print \"", ?MSG, "#{\\\"", OutName, "\\\"=>[{str,\\\"$", OutName, "\\\"}]}.\\n\";\n"];
+  ["print(\"", ?MSG, "#{\\\"", OutName, "\\\"=>", "[{str,\\\"\"+str(", OutName, ")+\"\\\"}]}.\\n\")\n"];
 
 dismissal( OutName, true ) ->
-  ["$TMP=join(\",\",map{\"{str,\\\"$_\\\"}\"}@", OutName, ");\n",
-   "print \"", ?MSG, "#{\\\"", OutName, "\\\"=>[$TMP]}.\\n\";\n"].
+  ["print(\"", ?MSG, "#{\\\"", OutName, "\\\"=>", "[\"+\",\".join(map(lambda x: \"{str,\\\"%s\\\"}\"%(x),", OutName, "))+\"]}.\\n\")\n"].
 
 
 %% ------------------------------------------------------------
@@ -64,4 +84,4 @@ dismissal( OutName, true ) ->
 
 %% quote/1
 %
-quote( S ) -> [$", S, $"].
+quote( S ) -> [$', S, $'].
